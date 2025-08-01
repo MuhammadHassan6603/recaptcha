@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Homease reCAPTCHA</title>
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script src="https://www.google.com/recaptcha/enterprise.js" async defer></script>
     <style>
         * {
             margin: 0;
@@ -60,10 +60,26 @@
             margin-bottom: 32px;
         }
 
-        .recaptcha-container {
-            display: flex;
-            justify-content: center;
-            margin: 24px 0;
+        .verify-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 20px 0;
+            width: 100%;
+        }
+
+        .verify-button:hover {
+            background: #0056b3;
+        }
+
+        .verify-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
         }
 
         .status {
@@ -129,11 +145,6 @@
             background: #0056b3;
         }
 
-        .manual-button:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-        }
-
         .footer {
             margin-top: 24px;
             font-size: 12px;
@@ -145,16 +156,11 @@
     <div class="container">
         <div class="logo">H</div>
         <h1>Security Verification</h1>
-        <p>Please complete the reCAPTCHA verification to proceed with your payment.</p>
+        <p>Please complete the security verification to proceed with your payment.</p>
         
-        <div class="recaptcha-container">
-            <div class="g-recaptcha" 
-                 data-sitekey="6LcXkZcrAAAAAHpKVExuSaxjTdZgS8npEkJCKsQX"
-                 data-callback="onRecaptchaSuccess"
-                 data-expired-callback="onRecaptchaExpired"
-                 data-error-callback="onRecaptchaError">
-            </div>
-        </div>
+        <button id="verifyBtn" class="verify-button" onclick="verifyCaptcha()">
+            Verify I'm Human
+        </button>
         
         <div id="successStatus" class="status success">
             ✓ Verification successful! You can now proceed.
@@ -166,57 +172,69 @@
         
         <div class="manual-verify">
             <h3>Manual Verification</h3>
-            <p>If reCAPTCHA doesn't work, enter "VERIFIED" below:</p>
+            <p>If automatic verification doesn't work, enter "VERIFIED" below:</p>
             <input type="text" id="manualInput" class="manual-input" placeholder="Enter VERIFIED">
             <button onclick="manualVerify()" class="manual-button">Verify Manually</button>
         </div>
         
         <div class="footer">
-            Powered by Google reCAPTCHA
+            Powered by Google reCAPTCHA Enterprise
         </div>
     </div>
 
     <script>
-        function onRecaptchaSuccess(token) {
-            console.log('reCAPTCHA success:', token);
-            document.getElementById('successStatus').style.display = 'block';
-            document.getElementById('errorStatus').style.display = 'none';
-            document.querySelector('.manual-verify').style.display = 'none';
+        function verifyCaptcha() {
+            const verifyBtn = document.getElementById('verifyBtn');
+            const successStatus = document.getElementById('successStatus');
+            const errorStatus = document.getElementById('errorStatus');
             
-            // Send success message to Flutter
-            if (window.flutter_inappwebview) {
-                window.flutter_inappwebview.callHandler('onRecaptchaSuccess', token);
-            }
-        }
-        
-        function onRecaptchaExpired() {
-            console.log('reCAPTCHA expired');
-            document.getElementById('successStatus').style.display = 'none';
-            document.getElementById('errorStatus').style.display = 'block';
-            document.getElementById('errorStatus').textContent = '✗ Verification expired. Please try again.';
-        }
-        
-        function onRecaptchaError() {
-            console.log('reCAPTCHA error');
-            document.getElementById('successStatus').style.display = 'none';
-            document.getElementById('errorStatus').style.display = 'block';
-            document.getElementById('errorStatus').textContent = '✗ Verification failed. Please try again.';
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'Verifying...';
+            successStatus.style.display = 'none';
+            errorStatus.style.display = 'none';
+            
+            grecaptcha.enterprise.ready(function() {
+                grecaptcha.enterprise.execute('6LcXkZcrAAAAAHpKVExuSaxjTdZgS8npEkJCKsQX', {action: 'PAYMENT'})
+                .then(function(token) {
+                    console.log('reCAPTCHA Enterprise success:', token);
+                    successStatus.style.display = 'block';
+                    errorStatus.style.display = 'none';
+                    document.querySelector('.manual-verify').style.display = 'none';
+                    verifyBtn.style.display = 'none';
+                    
+                    // Send success message to Flutter
+                    if (window.flutter_inappwebview) {
+                        window.flutter_inappwebview.callHandler('onRecaptchaSuccess', token);
+                    }
+                })
+                .catch(function(error) {
+                    console.log('reCAPTCHA Enterprise error:', error);
+                    errorStatus.style.display = 'block';
+                    errorStatus.textContent = '✗ Verification failed. Please try again.';
+                    verifyBtn.disabled = false;
+                    verifyBtn.textContent = 'Verify I\'m Human';
+                });
+            });
         }
         
         function manualVerify() {
             const input = document.getElementById('manualInput').value.trim().toUpperCase();
+            const successStatus = document.getElementById('successStatus');
+            const errorStatus = document.getElementById('errorStatus');
+            
             if (input === 'VERIFIED') {
-                document.getElementById('successStatus').style.display = 'block';
-                document.getElementById('errorStatus').style.display = 'none';
+                successStatus.style.display = 'block';
+                errorStatus.style.display = 'none';
                 document.querySelector('.manual-verify').style.display = 'none';
+                document.getElementById('verifyBtn').style.display = 'none';
                 
                 // Send success message to Flutter
                 if (window.flutter_inappwebview) {
                     window.flutter_inappwebview.callHandler('onRecaptchaSuccess', 'manual_verified');
                 }
             } else {
-                document.getElementById('errorStatus').style.display = 'block';
-                document.getElementById('errorStatus').textContent = '✗ Please enter "VERIFIED" exactly as shown.';
+                errorStatus.style.display = 'block';
+                errorStatus.textContent = '✗ Please enter "VERIFIED" exactly as shown.';
             }
         }
         
@@ -225,13 +243,10 @@
             setTimeout(function() {
                 if (document.getElementById('successStatus').style.display !== 'block') {
                     console.log('Auto-verifying...');
-                    // Simulate manual verification for testing
-                    document.getElementById('manualInput').value = 'VERIFIED';
-                    manualVerify();
+                    verifyCaptcha();
                 }
             }, 2000);
         };
     </script>
 </body>
-
 </html> 

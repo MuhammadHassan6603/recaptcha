@@ -144,7 +144,7 @@
         
         <div class="recaptcha-container">
             <div class="g-recaptcha" 
-                 data-sitekey="6Ldvg5crAAAAAPJwbvXIXF-N6zH-Npq5XLpTSLGr"
+                 data-sitekey="6LcXkZcrAAAAAHpKVExuSaxjTdZgS8npEkJCKsQX"
                  data-callback="onRecaptchaSuccess"
                  data-expired-callback="onRecaptchaExpired"
                  data-error-callback="onRecaptchaError">
@@ -171,9 +171,12 @@
             document.getElementById('errorStatus').style.display = 'none';
             document.querySelector('.manual-verify').style.display = 'none';
             
-            // Send success message to Flutter
             if (window.flutter_inappwebview) {
                 window.flutter_inappwebview.callHandler('onRecaptchaSuccess', token);
+            }
+            
+            if (window.Flutter) {
+                window.Flutter.postMessage('recaptcha_verified');
             }
         }
         
@@ -190,7 +193,7 @@
             document.getElementById('errorStatus').style.display = 'block';
             document.getElementById('errorStatus').textContent = '✗ Verification failed. Please try again.';
         }
+        
     </script>
 </body>
 </html> 
-

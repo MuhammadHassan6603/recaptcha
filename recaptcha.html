@@ -159,6 +159,8 @@
             ✗ Verification failed. Please try again.
         </div>
         
+        
+        
         <div class="footer">
             Powered by Google reCAPTCHA v2
         </div>
@@ -171,12 +173,27 @@
             document.getElementById('errorStatus').style.display = 'none';
             document.querySelector('.manual-verify').style.display = 'none';
             
+            // Send success message to Flutter
             if (window.flutter_inappwebview) {
                 window.flutter_inappwebview.callHandler('onRecaptchaSuccess', token);
             }
             
-            if (window.Flutter) {
-                window.Flutter.postMessage('recaptcha_verified');
+            // Send message to Flutter WebView
+            try {
+                if (window.Flutter) {
+                    console.log('Sending message to Flutter...');
+                    window.Flutter.postMessage('recaptcha_verified');
+                } else {
+                    console.log('Flutter channel not available, trying alternative...');
+                    // Alternative method for WebView communication
+                    if (window.webkit && window.webkit.messageHandlers) {
+                        window.webkit.messageHandlers.flutter.postMessage('recaptcha_verified');
+                    }
+                }
+            } catch (error) {
+                console.log('Error sending message to Flutter:', error);
+                // Fallback: trigger a custom event
+                document.dispatchEvent(new CustomEvent('recaptchaVerified'));
             }
         }
         

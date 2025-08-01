@@ -144,7 +144,7 @@
         
         <div class="recaptcha-container">
             <div class="g-recaptcha" 
-                 data-sitekey="6LcXkZcrAAAAAHpKVExuSaxjTdZgS8npEkJCKsQX"
+                 data-sitekey="6Ldvg5crAAAAAPJwbvXIXF-N6zH-Npq5XLpTSLGr"
                  data-callback="onRecaptchaSuccess"
                  data-expired-callback="onRecaptchaExpired"
                  data-error-callback="onRecaptchaError">
@@ -157,13 +157,6 @@
         
         <div id="errorStatus" class="status error">
             ✗ Verification failed. Please try again.
-        </div>
-        
-        <div class="manual-verify">
-            <h3>Manual Verification</h3>
-            <p>If reCAPTCHA doesn't work, enter "VERIFIED" below:</p>
-            <input type="text" id="manualInput" class="manual-input" placeholder="Enter VERIFIED">
-            <button onclick="manualVerify()" class="manual-button">Verify Manually</button>
         </div>
         
         <div class="footer">
@@ -197,26 +190,7 @@
             document.getElementById('errorStatus').style.display = 'block';
             document.getElementById('errorStatus').textContent = '✗ Verification failed. Please try again.';
         }
-        
-        function manualVerify() {
-            const input = document.getElementById('manualInput').value.trim().toUpperCase();
-            const successStatus = document.getElementById('successStatus');
-            const errorStatus = document.getElementById('errorStatus');
-            
-            if (input === 'VERIFIED') {
-                successStatus.style.display = 'block';
-                errorStatus.style.display = 'none';
-                document.querySelector('.manual-verify').style.display = 'none';
-                
-                // Send success message to Flutter
-                if (window.flutter_inappwebview) {
-                    window.flutter_inappwebview.callHandler('onRecaptchaSuccess', 'manual_verified');
-                }
-            } else {
-                errorStatus.style.display = 'block';
-                errorStatus.textContent = '✗ Please enter "VERIFIED" exactly as shown.';
-            }
-        }
     </script>
 </body>
 </html> 
+

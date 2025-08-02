@@ -155,47 +155,68 @@
             ✓ Verification successful! You can now proceed.
         </div>
         
-        <div id="errorStatus" class="status error">
-            ✗ Verification failed. Please try again.
-        </div>
-        
-        
-        
-        <div class="footer">
-            Powered by Google reCAPTCHA v2
-        </div>
+                 <div id="errorStatus" class="status error">
+             ✗ Verification failed. Please try again.
+         </div>
+         
+
+         
+         <div class="footer">
+             Powered by Google reCAPTCHA v2
+         </div>
     </div>
 
     <script>
-        function onRecaptchaSuccess(token) {
-            console.log('reCAPTCHA v2 success:', token);
-            document.getElementById('successStatus').style.display = 'block';
-            document.getElementById('errorStatus').style.display = 'none';
-            document.querySelector('.manual-verify').style.display = 'none';
-            
-            // Send success message to Flutter
-            if (window.flutter_inappwebview) {
-                window.flutter_inappwebview.callHandler('onRecaptchaSuccess', token);
-            }
-            
-            // Send message to Flutter WebView
-            try {
-                if (window.Flutter) {
-                    console.log('Sending message to Flutter...');
-                    window.Flutter.postMessage('recaptcha_verified');
-                } else {
-                    console.log('Flutter channel not available, trying alternative...');
-                    // Alternative method for WebView communication
-                    if (window.webkit && window.webkit.messageHandlers) {
-                        window.webkit.messageHandlers.flutter.postMessage('recaptcha_verified');
-                    }
-                }
-            } catch (error) {
-                console.log('Error sending message to Flutter:', error);
-                // Fallback: trigger a custom event
-                document.dispatchEvent(new CustomEvent('recaptchaVerified'));
-            }
-        }
+                 function onRecaptchaSuccess(token) {
+             console.log('reCAPTCHA v2 success:', token);
+             document.getElementById('successStatus').style.display = 'block';
+             document.getElementById('errorStatus').style.display = 'none';
+             
+             // Send success message to Flutter
+             if (window.flutter_inappwebview) {
+                 window.flutter_inappwebview.callHandler('onRecaptchaSuccess', token);
+             }
+             
+             // Send message to Flutter WebView immediately
+             try {
+                 if (window.Flutter) {
+                     console.log('Sending message to Flutter...');
+                     window.Flutter.postMessage('recaptcha_verified');
+                 } else {
+                     console.log('Flutter channel not available, trying alternative...');
+                     // Alternative method for WebView communication
+                     if (window.webkit && window.webkit.messageHandlers) {
+                         window.webkit.messageHandlers.flutter.postMessage('recaptcha_verified');
+                     }
+                 }
+             } catch (error) {
+                 console.log('Error sending message to Flutter:', error);
+                 // Fallback: trigger a custom event
+                 document.dispatchEvent(new CustomEvent('recaptchaVerified'));
+             }
+             
+             // Retry mechanism with multiple attempts
+             var attempts = 0;
+             var maxAttempts = 5;
+             var retryInterval = setInterval(function() {
+                 attempts++;
+                 console.log('Retry attempt ' + attempts + ' of ' + maxAttempts);
+                 
+                 try {
+                     if (window.Flutter) {
+                         window.Flutter.postMessage('recaptcha_verified');
+                         console.log('Retry ' + attempts + ': Message sent to Flutter');
+                     }
+                 } catch (error) {
+                     console.log('Retry ' + attempts + ' failed:', error);
+                 }
+                 
+                 if (attempts >= maxAttempts) {
+                     clearInterval(retryInterval);
+                     console.log('Max retry attempts reached');
+                 }
+             }, 200);
+         }
         
         function onRecaptchaExpired() {
             console.log('reCAPTCHA v2 expired');
@@ -204,13 +225,15 @@
             document.getElementById('errorStatus').textContent = '✗ Verification expired. Please try again.';
         }
         
-        function onRecaptchaError() {
-            console.log('reCAPTCHA v2 error');
-            document.getElementById('successStatus').style.display = 'none';
-            document.getElementById('errorStatus').style.display = 'block';
-            document.getElementById('errorStatus').textContent = '✗ Verification failed. Please try again.';
-        }
-        
-    </script>
+                 function onRecaptchaError() {
+             console.log('reCAPTCHA v2 error');
+             document.getElementById('successStatus').style.display = 'none';
+             document.getElementById('errorStatus').style.display = 'block';
+             document.getElementById('errorStatus').textContent = '✗ Verification failed. Please try again.';
+         }
+         
+
+         
+     </script>
 </body>
 </html> 

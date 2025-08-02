@@ -86,53 +86,20 @@
             border: 1px solid #f5c6cb;
         }
 
-        .manual-verify {
-            margin-top: 24px;
-            padding: 16px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border: 1px solid #e9ecef;
-        }
-
-        .manual-verify h3 {
-            color: #495057;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-
-        .manual-verify p {
-            color: #6c757d;
-            font-size: 12px;
-            margin-bottom: 12px;
-        }
-
-        .manual-input {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-
-        .manual-button {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .manual-button:hover {
-            background: #0056b3;
-        }
-
         .footer {
             margin-top: 24px;
             font-size: 12px;
             color: #6c757d;
+        }
+
+        .debug-info {
+            margin-top: 16px;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-size: 10px;
+            color: #6c757d;
+            text-align: left;
         }
     </style>
 </head>
@@ -155,85 +122,146 @@
             ✓ Verification successful! You can now proceed.
         </div>
         
-                 <div id="errorStatus" class="status error">
-             ✗ Verification failed. Please try again.
-         </div>
+        <div id="errorStatus" class="status error">
+            ✗ Verification failed. Please try again.
+        </div>
+        
+        <div class="debug-info" id="debugInfo">
+            Waiting for reCAPTCHA...
+        </div>
          
-
-         
-         <div class="footer">
-             Powered by Google reCAPTCHA v2
-         </div>
+        <div class="footer">
+            Powered by Google reCAPTCHA v2
+        </div>
     </div>
 
     <script>
-                 function onRecaptchaSuccess(token) {
-             console.log('reCAPTCHA v2 success:', token);
-             document.getElementById('successStatus').style.display = 'block';
-             document.getElementById('errorStatus').style.display = 'none';
-             
-             // Send success message to Flutter
-             if (window.flutter_inappwebview) {
-                 window.flutter_inappwebview.callHandler('onRecaptchaSuccess', token);
-             }
-             
-             // Send message to Flutter WebView immediately
-             try {
-                 if (window.Flutter) {
-                     console.log('Sending message to Flutter...');
-                     window.Flutter.postMessage('recaptcha_verified');
-                 } else {
-                     console.log('Flutter channel not available, trying alternative...');
-                     // Alternative method for WebView communication
-                     if (window.webkit && window.webkit.messageHandlers) {
-                         window.webkit.messageHandlers.flutter.postMessage('recaptcha_verified');
-                     }
-                 }
-             } catch (error) {
-                 console.log('Error sending message to Flutter:', error);
-                 // Fallback: trigger a custom event
-                 document.dispatchEvent(new CustomEvent('recaptchaVerified'));
-             }
-             
-             // Retry mechanism with multiple attempts
-             var attempts = 0;
-             var maxAttempts = 5;
-             var retryInterval = setInterval(function() {
-                 attempts++;
-                 console.log('Retry attempt ' + attempts + ' of ' + maxAttempts);
-                 
-                 try {
-                     if (window.Flutter) {
-                         window.Flutter.postMessage('recaptcha_verified');
-                         console.log('Retry ' + attempts + ': Message sent to Flutter');
-                     }
-                 } catch (error) {
-                     console.log('Retry ' + attempts + ' failed:', error);
-                 }
-                 
-                 if (attempts >= maxAttempts) {
-                     clearInterval(retryInterval);
-                     console.log('Max retry attempts reached');
-                 }
-             }, 200);
-         }
+        function updateDebug(message) {
+            const debugEl = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            debugEl.innerHTML += `<br>[${timestamp}] ${message}`;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function sendMessageToFlutter(message) {
+            updateDebug(`Attempting to send: ${message}`);
+            
+            // Method 1: Direct Flutter channel
+            if (window.Flutter && typeof window.Flutter.postMessage === 'function') {
+                try {
+                    window.Flutter.postMessage(message);
+                    updateDebug('✓ Sent via Flutter.postMessage');
+                    return true;
+                } catch (error) {
+                    updateDebug(`✗ Flutter.postMessage failed: ${error.message}`);
+                }
+            }
+            
+            // Method 2: WebKit message handlers (iOS)
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.Flutter) {
+                try {
+                    window.webkit.messageHandlers.Flutter.postMessage(message);
+                    updateDebug('✓ Sent via webkit.messageHandlers');
+                    return true;
+                } catch (error) {
+                    updateDebug(`✗ webkit.messageHandlers failed: ${error.message}`);
+                }
+            }
+            
+            // Method 3: Android WebView interface
+            if (window.Android && typeof window.Android.postMessage === 'function') {
+                try {
+                    window.Android.postMessage(message);
+                    updateDebug('✓ Sent via Android interface');
+                    return true;
+                } catch (error) {
+                    updateDebug(`✗ Android interface failed: ${error.message}`);
+                }
+            }
+            
+            // Method 4: Custom event as fallback
+            try {
+                const event = new CustomEvent('flutterMessage', { detail: message });
+                document.dispatchEvent(event);
+                updateDebug('✓ Sent via custom event');
+                return true;
+            } catch (error) {
+                updateDebug(`✗ Custom event failed: ${error.message}`);
+            }
+            
+            // Method 5: URL change as last resort
+            try {
+                window.location.hash = `#flutter-message:${encodeURIComponent(message)}`;
+                updateDebug('✓ Sent via URL hash');
+                return true;
+            } catch (error) {
+                updateDebug(`✗ URL hash failed: ${error.message}`);
+            }
+            
+            updateDebug('✗ All communication methods failed');
+            return false;
+        }
+
+        function onRecaptchaSuccess(token) {
+            updateDebug('reCAPTCHA verification successful');
+            
+            // Show success UI
+            document.getElementById('successStatus').style.display = 'block';
+            document.getElementById('errorStatus').style.display = 'none';
+            
+            // Send success message to Flutter
+            const messageSent = sendMessageToFlutter('recaptcha_verified');
+            
+            if (messageSent) {
+                updateDebug('Success message sent to Flutter');
+            } else {
+                updateDebug('Failed to send message to Flutter');
+            }
+            
+            // Auto-close after 2 seconds if message sent successfully
+            if (messageSent) {
+                setTimeout(() => {
+                    updateDebug('Auto-closing dialog...');
+                    sendMessageToFlutter('dialog_close');
+                }, 2000);
+            }
+        }
         
         function onRecaptchaExpired() {
-            console.log('reCAPTCHA v2 expired');
+            updateDebug('reCAPTCHA expired');
             document.getElementById('successStatus').style.display = 'none';
             document.getElementById('errorStatus').style.display = 'block';
             document.getElementById('errorStatus').textContent = '✗ Verification expired. Please try again.';
+            
+            sendMessageToFlutter('recaptcha_expired');
         }
         
-                 function onRecaptchaError() {
-             console.log('reCAPTCHA v2 error');
-             document.getElementById('successStatus').style.display = 'none';
-             document.getElementById('errorStatus').style.display = 'block';
-             document.getElementById('errorStatus').textContent = '✗ Verification failed. Please try again.';
-         }
-         
+        function onRecaptchaError() {
+            updateDebug('reCAPTCHA error occurred');
+            document.getElementById('successStatus').style.display = 'none';
+            document.getElementById('errorStatus').style.display = 'block';
+            document.getElementById('errorStatus').textContent = '✗ Verification failed. Please try again.';
+            
+            sendMessageToFlutter('recaptcha_error');
+        }
 
-         
-     </script>
+        // Test communication when page loads
+        window.addEventListener('load', function() {
+            updateDebug('Page loaded, testing Flutter communication...');
+            
+            // Test different communication methods
+            updateDebug(`Flutter available: ${!!window.Flutter}`);
+            updateDebug(`WebKit available: ${!!(window.webkit && window.webkit.messageHandlers)}`);
+            updateDebug(`Android available: ${!!window.Android}`);
+            
+            // Send test message
+            sendMessageToFlutter('page_loaded');
+        });
+        
+        // Listen for messages from Flutter
+        window.addEventListener('message', function(event) {
+            updateDebug(`Received message from Flutter: ${event.data}`);
+        });
+    </script>
 </body>
-</html> 
+</html>

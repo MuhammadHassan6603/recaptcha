@@ -1,319 +1,200 @@
-import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-
-class ReCaptchaDialog extends StatefulWidget {
-  final Function(bool) onResult;
-
-  const ReCaptchaDialog({
-    Key? key,
-    required this.onResult,
-  }) : super(key: key);
-
-  @override
-  State<ReCaptchaDialog> createState() => _ReCaptchaDialogState();
-}
-
-class _ReCaptchaDialogState extends State<ReCaptchaDialog> {
-  bool _isLoading = true;
-  bool _isVerified = false;
-  late WebViewController _webViewController;
-
-  @override
-  void initState() {
-    super.initState();
-    _setupWebViewController();
-  }
-
-  void _setupWebViewController() {
-    _webViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.white)
-      ..addJavaScriptChannel(
-        'Flutter',
-        onMessageReceived: (JavaScriptMessage message) {
-          _handleWebViewMessage(message.message);
-        },
-      )
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (String url) {
-            print('WebView page started loading: $url');
-          },
-          onPageFinished: (String url) {
-            print('WebView page finished loading: $url');
-            setState(() {
-              _isLoading = false;
-            });
-            _setupJavaScriptCommunication();
-          },
-          onWebResourceError: (WebResourceError error) {
-            print('WebView error: ${error.description}');
-          },
-        ),
-      );
-
-    // Load the reCAPTCHA page
-    _webViewController.loadRequest(
-      Uri.parse('https://muhammadhassan6603.github.io/recaptcha/')
-    );
-  }
-
-  void _setupJavaScriptCommunication() {
-    _webViewController.runJavaScript('''
-      // Setup hash message listener
-      function checkHashMessage() {
-        if (window.location.hash.startsWith('#flutter-message:')) {
-          const message = decodeURIComponent(window.location.hash.substring(16));
-          if (window.Flutter) {
-            window.Flutter.postMessage(message);
-          }
-          window.location.hash = '';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homease reCAPTCHA</title>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-      }
-      
-      window.addEventListener('hashchange', checkHashMessage);
-      
-      document.addEventListener('flutterMessage', function(event) {
-        if (window.Flutter) {
-          window.Flutter.postMessage(event.detail);
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
-      });
-      
-      setInterval(checkHashMessage, 500);
-    ''');
-  }
 
-  void _handleWebViewMessage(String message) {
-    print('Received message from WebView: $message');
-
-    switch (message) {
-      case 'page_loaded':
-        // Page loaded successfully
-        break;
-        
-      case 'recaptcha_verified':
-        print('reCAPTCHA verified! Proceeding automatically...');
-        setState(() {
-          _isVerified = true;
-        });
-        
-        // Show success state briefly then close
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            widget.onResult(true);
-            Navigator.of(context).pop();
-          }
-        });
-        break;
-        
-      case 'recaptcha_expired':
-        setState(() {
-          _isVerified = false;
-        });
-        break;
-        
-      case 'recaptcha_error':
-        setState(() {
-          _isVerified = false;
-        });
-        break;
-        
-      case 'dialog_close':
-        if (mounted) {
-          Navigator.of(context).pop();
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
         }
-        break;
-        
-      default:
-        print('Unknown message: $message');
-    }
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.white,
-        ),
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _isVerified 
-                          ? Colors.green.withOpacity(0.1) 
-                          : Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      _isVerified ? Icons.check_circle : Icons.security,
-                      color: _isVerified ? Colors.green : Colors.blue,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Google reCAPTCHA Verification',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        Text(
-                          _isVerified 
-                              ? '✓ Verification Complete' 
-                              : 'Complete the verification below',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: _isVerified 
-                                ? Colors.green 
-                                : Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      widget.onResult(false);
-                      Navigator.of(context).pop();
-                    },
-                    icon: const Icon(Icons.close, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 32px;
+        }
+
+        .recaptcha-container {
+            display: flex;
+            justify-content: center;
+            margin: 24px 0;
+        }
+
+        .status {
+            margin-top: 24px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .footer {
+            margin-top: 24px;
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">H</div>
+        <h1>Security Verification</h1>
+        <p>Please complete the reCAPTCHA verification to proceed with your payment.</p>
+        
+        <div class="recaptcha-container">
+            <div class="g-recaptcha" 
+                 data-sitekey="6LcXkZcrAAAAAHpKVExuSaxjTdZgS8npEkJCKsQX"
+                 data-callback="onRecaptchaSuccess"
+                 data-expired-callback="onRecaptchaExpired"
+                 data-error-callback="onRecaptchaError">
+            </div>
+        </div>
+        
+        <div id="successStatus" class="status success">
+            ✓ Verification successful! You can now proceed.
+        </div>
+        
+        <div id="errorStatus" class="status error">
+            ✗ Verification failed. Please try again.
+        </div>
+
+         
+        <div class="footer">
+            Powered by Google reCAPTCHA v2
+        </div>
+    </div>
+
+    <script>
+        function sendMessageToFlutter(message) {
+            // Method 1: Direct Flutter channel
+            if (window.Flutter && typeof window.Flutter.postMessage === 'function') {
+                try {
+                    window.Flutter.postMessage(message);
+                    return true;
+                } catch (error) {
+                    console.log('Flutter.postMessage failed:', error);
+                }
+            }
             
-            // WebView Container
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Stack(
-                    children: [
-                      WebViewWidget(controller: _webViewController),
-                      if (_isLoading)
-                        Container(
-                          color: Colors.white,
-                          child: const Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                CircularProgressIndicator(color: Colors.blue),
-                                SizedBox(height: 16),
-                                Text(
-                                  'Loading Google reCAPTCHA...',
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            // Method 2: WebKit message handlers (iOS)
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.Flutter) {
+                try {
+                    window.webkit.messageHandlers.Flutter.postMessage(message);
+                    return true;
+                } catch (error) {
+                    console.log('webkit.messageHandlers failed:', error);
+                }
+            }
             
-            // Bottom Section
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  // Status message
-                  if (_isVerified)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.green.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Verification complete! Proceeding to payment...',
-                              style: TextStyle(
-                                color: Colors.green.shade700,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  
-                  // Cancel button
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
-                      onPressed: () {
-                        widget.onResult(false);
-                        Navigator.of(context).pop();
-                      },
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(color: Colors.grey.shade300),
-                        ),
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+            // Method 3: Custom event as fallback
+            try {
+                const event = new CustomEvent('flutterMessage', { detail: message });
+                document.dispatchEvent(event);
+                return true;
+            } catch (error) {
+                console.log('Custom event failed:', error);
+            }
+            
+            // Method 4: URL change as last resort
+            try {
+                window.location.hash = `#flutter-message:${encodeURIComponent(message)}`;
+                return true;
+            } catch (error) {
+                console.log('URL hash failed:', error);
+            }
+            
+            return false;
+        }
+
+        function onRecaptchaSuccess(token) {
+            console.log('reCAPTCHA success:', token);
+            
+            // Send success message to Flutter immediately without showing UI
+            sendMessageToFlutter('recaptcha_verified');
+        }
+        
+        function onRecaptchaExpired() {
+            console.log('reCAPTCHA expired');
+            document.getElementById('successStatus').style.display = 'none';
+            document.getElementById('errorStatus').style.display = 'block';
+            document.getElementById('errorStatus').textContent = '✗ Verification expired. Please try again.';
+            
+            sendMessageToFlutter('recaptcha_expired');
+        }
+        
+        function onRecaptchaError() {
+            console.log('reCAPTCHA error');
+            document.getElementById('successStatus').style.display = 'none';
+            document.getElementById('errorStatus').style.display = 'block';
+            document.getElementById('errorStatus').textContent = '✗ Verification failed. Please try again.';
+            
+            sendMessageToFlutter('recaptcha_error');
+        }
+
+        // Setup communication when page loads
+        window.addEventListener('load', function() {
+            sendMessageToFlutter('page_loaded');
+        });
+    </script>
+</body>
+</html>
